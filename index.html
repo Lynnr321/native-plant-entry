@@ -780,10 +780,10 @@ async function savePlant() {
     sunlight:             document.getElementById('f-sun').value,
     bloom_period:         document.getElementById('f-bloom').value,
     usda_zones:           document.getElementById('f-zones').value,
-    native_to:            document.getElementById('f-native').value,
     description:          document.getElementById('f-desc').value,
     plant_image:          pendingImages.plant   ? '[image attached]' : '',
     seedling_image:       pendingImages.seedling ? '[image attached]' : '',
+    native_to:            document.getElementById('f-native').value,
   };
 
   // Save locally first so it's never lost
