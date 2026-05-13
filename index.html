@@ -801,17 +801,24 @@ async function savePlant() {
   resetForm();
   switchTab('library');
 
+  // Debug image data before sending
+  console.log('=== PLANT SAVE DEBUG ===');
+  console.log('plant_image length:', p.plant_image ? p.plant_image.length : 0);
+  console.log('plant_image preview:', p.plant_image ? p.plant_image.substring(0, 60) : 'EMPTY');
+  console.log('seedling_image length:', p.seedling_image ? p.seedling_image.length : 0);
+
   // Send directly to Google Sheets via Apps Script
   try {
     await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(p),
-      mode: 'no-cors' // required for cross-origin calls to Google Apps Script
+      mode: 'no-cors'
     });
     showToast('✓ ' + common + ' saved locally and sent to Google Sheets');
   } catch (e) {
     showToast('⚠ Saved locally but could not reach Google Sheets — check your connection');
+    console.error('Fetch error:', e);
   }
 }
 
