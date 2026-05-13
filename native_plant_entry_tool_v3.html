@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native Plant Entry Tool — MyNativeGardenPlanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-dark: #1a2e1a;
+    --green-mid: #2d4a2d;
+    --green-light: #4a7c4a;
+    --green-pale: #e8f0e8;
+    --green-accent: #6aab5e;
+    --cream: #f8f5ef;
+    --warm-white: #fdfcf9;
+    --text-primary: #1a2e1a;
+    --text-secondary: #5a6e5a;
+    --text-muted: #8a9e8a;
+    --border: #d0ddd0;
+    --border-light: #e4ede4;
+    --danger: #c0392b;
+    --warning-bg: #fff8e6;
+    --warning-border: #e6c84a;
+    --warning-text: #7a6010;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 2px 12px rgba(26,46,26,0.08);
+    --shadow-lg: 0 8px 32px rgba(26,46,26,0.12);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--green-dark);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--cream);
+    letter-spacing: 0.01em;
+    font-weight: 500;
+  }
+  header h1 span { color: var(--green-accent); font-style: italic; }
+  .header-badge {
+    font-size: 11px;
+    background: rgba(106,171,94,0.2);
+    color: var(--green-accent);
+    border: 1px solid rgba(106,171,94,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-weight: 500;
+  }
+
+  /* ── API Key Banner ── */
+  #api-banner {
+    background: var(--warning-bg);
+    border-bottom: 1px solid var(--warning-border);
+    padding: 12px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #api-banner p { font-size: 13px; color: var(--warning-text); flex: 1; min-width: 200px; }
+  #api-banner p a { color: var(--warning-text); text-decoration: underline; }
+  .api-key-row { display: flex; gap: 8px; align-items: center; }
+  .api-key-row input {
+    font-family: 'DM Sans', monospace;
+    font-size: 12px;
+    padding: 7px 12px;
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius);
+    background: white;
+    color: var(--text-primary);
+    width: 280px;
+  }
+  .api-key-row input:focus { outline: none; border-color: var(--green-light); }
+  #api-saved-msg { font-size: 12px; color: #2d7a2d; font-weight: 500; display: none; }
+
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 2px solid var(--border); }
+  .tab {
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--green-dark); border-bottom-color: var(--green-accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Lookup section ── */
+  .lookup-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .lookup-card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--green-dark);
+  }
+  .lookup-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+  .lookup-mode-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    width: fit-content;
+  }
+  .mode-btn {
+    padding: 7px 18px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .mode-btn.active { background: var(--green-dark); color: white; }
+
+  .search-row { display: flex; gap: 10px; align-items: stretch; }
+  .search-row input {
+    flex: 1;
+    font-size: 15px;
+    padding: 11px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: white;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.15s;
+  }
+  .search-row input:focus { outline: none; border-color: var(--green-light); }
+  .search-row input::placeholder { color: var(--text-muted); font-style: italic; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--green-pale); border-color: var(--green-light); }
+  .btn-primary { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+  .btn-primary:hover { background: var(--green-mid); border-color: var(--green-mid); }
+  .btn-success { background: #2d7a2d; color: white; border-color: #2d7a2d; }
+  .btn-success:hover { background: #256425; }
+  .btn-export { background: #1a4a7a; color: white; border-color: #1a4a7a; }
+  .btn-export:hover { background: #153d66; }
+  .btn-danger { color: var(--danger); border-color: #e8d0d0; }
+  .btn-danger:hover { background: #fdf0f0; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+  /* ── Status / Loading ── */
+  #ai-status { margin: 10px 0; min-height: 30px; }
+  .ai-loading { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; }
+  .dot-pulse { display: flex; gap: 4px; }
+  .dot-pulse span { width: 6px; height: 6px; border-radius: 50%; background: var(--green-accent); animation: dp 1.2s infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dp { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
+  .error-msg { color: var(--danger); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .warn-msg {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    color: var(--warning-text);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .warn-msg button { margin-left: auto; font-size: 12px; padding: 4px 10px; }
+
+  /* ── Entry Form ── */
+  #entry-form {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+  .form-section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 18px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .form-section-title:first-child { margin-top: 0; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-full { grid-column: 1 / -1; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-group label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .field-group input, .field-group textarea {
+    font-size: 14px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: white;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .field-group input:focus, .field-group textarea:focus { outline: none; border-color: var(--green-light); }
+  .field-group textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+
+  /* ── Image Upload ── */
+  .img-upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .img-upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+    position: relative;
+  }
+  .img-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
+  .img-upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .img-upload-zone .icon { font-size: 28px; margin-bottom: 6px; }
+  .img-upload-zone .label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .img-upload-zone .sublabel { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .img-preview { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
+  .img-size-badge {
+    font-size: 10px;
+    background: var(--green-pale);
+    color: var(--green-light);
+    border-radius: 20px;
+    padding: 2px 8px;
+    display: inline-block;
+  }
+
+  /* ── Save Row ── */
+  .save-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  /* ── Library ── */
+  .library-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .library-info { font-size: 13px; color: var(--text-secondary); }
+  .export-hint {
+    background: #eaf3ff;
+    border: 1px solid #b0ccee;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #2a4a7a;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .plant-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.2s;
+  }
+  .plant-card:hover { box-shadow: var(--shadow-lg); }
+  .plant-card-header {
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: white;
+    border-bottom: 1px solid transparent;
+    transition: background 0.15s;
+  }
+  .plant-card-header:hover { background: var(--green-pale); }
+  .plant-card-header.open { border-bottom-color: var(--border-light); }
+  .plant-card-header h3 { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+  .plant-card-header .sci { font-size: 12px; color: var(--text-secondary); font-style: italic; }
+  .plant-card-body { display: none; padding: 16px 18px; }
+  .plant-card-body.open { display: block; }
+
+  .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; font-size: 13px; }
+  .mini-field { display: flex; flex-direction: column; gap: 2px; }
+  .mini-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .mini-value { color: var(--text-primary); }
+  .mini-full { grid-column: 1/-1; }
+
+  .card-img-row { display: flex; gap: 10px; margin-top: 12px; }
+  .card-img-wrap { flex: 1; }
+  .card-img-wrap img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-light); }
+  .card-img-wrap .mini-label { margin-bottom: 4px; }
+  .card-img-empty { width: 100%; height: 100px; background: var(--green-pale); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); border: 1px solid var(--border-light); }
+
+  /* ── Chips ── */
+  .chip {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .chip-id { background: #e8f0ff; color: #2a4a9a; }
+  .chip-saved { background: #e6f4e6; color: #2a6a2a; }
+  .chip-dupe { background: #fff3e0; color: #9a5a00; }
+
+  /* ── Chevron ── */
+  .chevron { display: inline-block; transition: transform 0.2s; font-style: normal; }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--green-dark);
+    color: white;
+    padding: 12px 22px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: var(--shadow-lg);
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state p { font-size: 14px; line-height: 1.7; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--green-pale); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 My Native Garden <span>Planner</span> — Plant Entry</h1>
+  <span class="header-badge">Admin Tool</span>
+</header>
+
+<div id="api-banner">
+  <p>🔑 <strong>Anthropic API key required</strong> to use AI lookup. Get yours at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Key is stored in your browser only.</p>
+  <div class="api-key-row">
+    <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
+    <button class="btn btn-sm btn-primary" onclick="saveApiKey()">Save key</button>
+    <span id="api-saved-msg">✓ Key saved</span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('add')">➕ Add New Plant</div>
+    <div class="tab" onclick="switchTab('library')">📋 Plant Library <span id="lib-count-badge" style="color:#8a9e8a;font-size:11px"></span></div>
+  </div>
+
+  <!-- ADD TAB -->
+  <div id="tab-add" class="tab-panel active">
+
+    <div class="lookup-card">
+      <h2>AI-Assisted Plant Entry</h2>
+      <p>Enter a common name or scientific name — AI will research and fill in all plant data fields automatically.</p>
+
+      <div class="lookup-mode-toggle">
+        <button class="mode-btn active" id="mode-common" onclick="setMode('common')">Common Name</button>
+        <button class="mode-btn" id="mode-sci" onclick="setMode('scientific')">Scientific Name</button>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="plant-name-input"
+          placeholder="e.g. Blue-eyed grass"
+          onkeydown="if(event.key==='Enter')lookupPlant()" />
+        <button class="btn btn-primary" onclick="lookupPlant()">✨ Fill with AI</button>
+      </div>
+    </div>
+
+    <div id="ai-status"></div>
+
+    <div id="entry-form" style="display:none">
+      <div class="form-section-title">Plant Identity</div>
+      <div class="field-grid">
+        <div class="field-group"><label>Plant ID</label><input id="f-id" readonly style="background:#f5f5f0;color:#8a9e8a" /></div>
+        <div class="field-group"><label>Common Name</label><input id="f-common" /></div>
+        <div class="field-group field-full"><label>Scientific / Latin Name</label><input id="f-sci" /></div>
+        <div class="field-group field-full"><label>Native to (US regions / states)</label><input id="f-native" /></div>
+      </div>
+
+      <div class="form-section-title">Growth & Habitat</div>
+      <div class="field-grid">
+        <div class="field-group"><label>Height</label><input id="f-tall" /></div>
+        <div class="field-group"><label>Spread / Width</label><input id="f-wide" /></div>
+        <div class="field-group"><label>Root System</label><input id="f-root" /></div>
+        <div class="field-group"><label>Spread / Growth Habit</label><input id="f-spread" /></div>
+        <div class="field-group"><label>Soil Type / Preferences</label><input id="f-soil" /></div>
+        <div class="field-group"><label>Sunlight</label><input id="f-sun" /></div>
+        <div class="field-group"><label>Bloom Period</label><input id="f-bloom" /></div>
+        <div class="field-group"><label>USDA Zones</label><input id="f-zones" /></div>
+        <div class="field-group field-full"><label>Propagation</label><input id="f-prop" /></div>
+      </div>
+
+      <div class="form-section-title">Description</div>
+      <div class="field-grid">
+        <div class="field-group field-full"><label>Description / Ecological Role</label><textarea id="f-desc"></textarea></div>
+      </div>
+
+      <div class="form-section-title">Photos <span style="font-weight:300;font-style:italic;text-transform:none;letter-spacing:0">— auto-resized to 800×800px on upload</span></div>
+      <div class="img-upload-grid">
+        <div>
+          <div class="img-upload-zone" id="zone-plant" onclick="document.getElementById('img-plant').click()">
+            <input type="file" id="img-plant" accept="image/*" style="display:none" onchange="handleImage(this,'plant')" />
+            <div id="plant-preview-wrap">
+              <div class="icon">📷</div>
+              <div class="label">Plant Image</div>
+              <div class="sublabel">Click to upload · auto-resized to 800×800</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="img-upload-zone" id="zone-seedling" onclick="document.getElementById('img-seedling').click()">
+            <input type="file" id="img-seedling" accept="image/*" style="display:none" onchange="handleImage(this,'seedling')" />
+            <div id="seedling-preview-wrap">
+              <div class="icon">🌱</div>
+              <div class="label">Seedling Image</div>
+              <div class="sublabel">Click to upload · auto-resized to 800×800</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-sm" onclick="resetForm()">Clear</button>
+        <button class="btn btn-sm btn-success" onclick="savePlant()">✓ Save to library</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIBRARY TAB -->
+  <div id="tab-library" class="tab-panel">
+    <div id="library-empty" class="empty-state" style="display:none">
+      <div class="icon">🌿</div>
+      <p>No plants saved yet.<br>Add some from the entry tab.</p>
+    </div>
+    <div id="library-content" style="display:none">
+      <div class="export-hint">
+        📥 <strong>Export CSV</strong> to import into Google Sheets (which feeds your AppSheet app), or share with users who don't have a Google account. Column headers match your AppSheet field names. Image data is embedded as base64 in the CSV.
+      </div>
+      <div class="library-toolbar">
+        <span class="library-info" id="lib-count-text"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-export" onclick="exportCSV()">⬇ Export CSV + Summary</button>
+          <button class="btn btn-sm btn-primary" onclick="switchTab('add')">＋ Add Plant</button>
+        </div>
+      </div>
+      <div id="plant-cards"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Hidden canvas for image resizing -->
+<canvas id="resize-canvas" style="display:none"></canvas>
+
+<script>
+// ── State ──
+const savedPlants = [];
+let nextId = 1001;
+let lookupMode = 'common';
+let pendingImages = { plant: null, seedling: null };
+
+// ── API Key ──
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) return;
+  localStorage.setItem('anthropic_api_key', key);
+  document.getElementById('api-saved-msg').style.display = 'inline';
+  document.getElementById('api-key-input').value = '••••••••••••••••';
+  showToast('API key saved to browser');
+}
+function getApiKey() {
+  const stored = localStorage.getItem('anthropic_api_key');
+  if (stored) return stored;
+  return document.getElementById('api-key-input').value.trim();
+}
+// Load saved key on start
+window.addEventListener('load', () => {
+  const k = localStorage.getItem('anthropic_api_key');
+  if (k) {
+    document.getElementById('api-key-input').value = '••••••••••••••••';
+    document.getElementById('api-saved-msg').style.display = 'inline';
+  }
+});
+
+// ── Mode Toggle ──
+function setMode(mode) {
+  lookupMode = mode;
+  document.getElementById('mode-common').classList.toggle('active', mode === 'common');
+  document.getElementById('mode-sci').classList.toggle('active', mode === 'scientific');
+  const input = document.getElementById('plant-name-input');
+  input.placeholder = mode === 'common'
+    ? 'e.g. Blue-eyed grass, Dutchman\'s Breeches…'
+    : 'e.g. Sisyrinchium angustifolium, Dicentra cucullaria…';
+  input.value = '';
+}
+
+// ── Tabs ──
+function switchTab(tab) {
+  ['add','library'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.querySelectorAll('.tab')[t==='add'?0:1].classList.toggle('active', t === tab);
+  });
+  if (tab === 'library') renderLibrary();
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Duplicate check ──
+function findDuplicate(sciName) {
+  if (!sciName) return null;
+  const norm = sciName.trim().toLowerCase();
+  return savedPlants.find(p => p.sci.trim().toLowerCase() === norm) || null;
+}
+
+// ── AI Lookup ──
+async function lookupPlant() {
+  const name = document.getElementById('plant-name-input').value.trim();
+  if (!name) { showToast('Please enter a plant name first'); return; }
+  const key = getApiKey();
+  if (!key || key.startsWith('••')) {
+    setStatus('<span class="error-msg">⚠ Please enter your Anthropic API key in the banner above first.</span>');
+    return;
+  }
+
+  setStatus('<div class="ai-loading"><div class="dot-pulse"><span></span><span></span><span></span></div> Researching <strong style="margin-left:4px">' + name + '</strong>…</div>');
+  document.getElementById('entry-form').style.display = 'none';
+
+  const fieldDesc = lookupMode === 'common'
+    ? `The user provided the common name: "${name}". Return the correct scientific name and all other fields.`
+    : `The user provided the scientific/Latin name: "${name}". Return the correct common name and all other fields.`;
+
+  const prompt = `You are a native plant database assistant for a US native plants app.
+${fieldDesc}
+
+Return ONLY a valid JSON object with NO markdown, no explanation, no preamble. Keys must be exactly:
+common_name, scientific_name, height, width, root_system, spread_growth_habit, soil_type, propagation, sunlight, bloom_period, usda_zones, description, native_to
+
+Rules:
+- height: e.g. "12–18 inches" or "2–3 feet"
+- width: e.g. "6–12 inches" or "1–2 feet"
+- usda_zones: e.g. "3–8"
+- description: 2–3 sentences on ecological role, wildlife value, and garden use
+- native_to: US states or regions, concise (e.g. "Eastern US, Midwest")
+- All data must be accurate horticultural information`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+
+    const data = await res.json();
+    let text = data.content.map(c => c.text || '').join('');
+    text = text.replace(/```json|```/g, '').trim();
+    const plant = JSON.parse(text);
+
+    // Duplicate check
+    const dupe = findDuplicate(plant.scientific_name);
+    if (dupe) {
+      setStatus(`<div class="warn-msg">⚠ <div><strong>Possible duplicate detected</strong> — <em>${plant.scientific_name}</em> already exists in your library as "<strong>${dupe.common}</strong>" (${dupe.id}). Do you still want to add this entry?<br><br><button class="btn btn-sm" onclick="fillForm(${JSON.stringify(plant).replace(/"/g,'&quot;')})">Add anyway</button> <button class="btn btn-sm btn-danger" onclick="clearStatus()">Cancel</button></div></div>`);
+      return;
+    }
+
+    fillForm(plant);
+  } catch (e) {
+    setStatus('<span class="error-msg">⚠ ' + (e.message || 'Could not look up plant. Check your API key and try again.') + '</span>');
+  }
+}
+
+function setStatus(html) {
+  document.getElementById('ai-status').innerHTML = html;
+}
+function clearStatus() {
+  document.getElementById('ai-status').innerHTML = '';
+}
+
+function fillForm(plant) {
+  clearStatus();
+  pendingImages = { plant: null, seedling: null };
+  resetImageZones();
+  document.getElementById('entry-form').style.display = 'block';
+  document.getElementById('f-id').value = 'PLT-' + nextId;
+  document.getElementById('f-common').value = plant.common_name || '';
+  document.getElementById('f-sci').value = plant.scientific_name || '';
+  document.getElementById('f-tall').value = plant.height || '';
+  document.getElementById('f-wide').value = plant.width || '';
+  document.getElementById('f-root').value = plant.root_system || '';
+  document.getElementById('f-spread').value = plant.spread_growth_habit || '';
+  document.getElementById('f-soil').value = plant.soil_type || '';
+  document.getElementById('f-prop').value = plant.propagation || '';
+  document.getElementById('f-sun').value = plant.sunlight || '';
+  document.getElementById('f-bloom').value = plant.bloom_period || '';
+  document.getElementById('f-zones').value = plant.usda_zones || '';
+  document.getElementById('f-native').value = plant.native_to || '';
+  document.getElementById('f-desc').value = plant.description || '';
+}
+
+function resetForm() {
+  document.getElementById('entry-form').style.display = 'none';
+  clearStatus();
+  document.getElementById('plant-name-input').value = '';
+  pendingImages = { plant: null, seedling: null };
+  resetImageZones();
+}
+
+function resetImageZones() {
+  ['plant','seedling'].forEach(type => {
+    const wrap = document.getElementById(type + '-preview-wrap');
+    wrap.innerHTML = type === 'plant'
+      ? '<div class="icon">📷</div><div class="label">Plant Image</div><div class="sublabel">Click to upload · auto-resized to 800×800</div>'
+      : '<div class="icon">🌱</div><div class="label">Seedling Image</div><div class="sublabel">Click to upload · auto-resized to 800×800</div>';
+  });
+}
+
+// ── Image handling ──
+function handleImage(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById('resize-canvas');
+      const SIZE = 800;
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      // Cover-fit: center crop to square
+      const s = Math.min(img.width, img.height);
+      const ox = (img.width - s) / 2;
+      const oy = (img.height - s) / 2;
+      ctx.drawImage(img, ox, oy, s, s, 0, 0, SIZE, SIZE);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      pendingImages[type] = dataUrl;
+      // Show preview
+      const wrap = document.getElementById(type + '-preview-wrap');
+      const kb = Math.round(dataUrl.length * 0.75 / 1024);
+      wrap.innerHTML = `<img src="${dataUrl}" class="img-preview" /><span class="img-size-badge">800×800px · ~${kb}KB</span>`;
+      showToast('Image resized to 800×800px (' + kb + 'KB)');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Save ──
+const ZAPIER_WEBHOOK = 'https://hooks.zapier.com/hooks/catch/9272841/4ygxw0s/';
+
+async function savePlant() {
+  const common = document.getElementById('f-common').value.trim();
+  const sci = document.getElementById('f-sci').value.trim();
+  if (!common) { showToast('Please enter a common name'); return; }
+
+  const dupe = findDuplicate(sci);
+  if (dupe) {
+    if (!confirm(`"${sci}" already exists as "${dupe.common}" (${dupe.id}). Save anyway?`)) return;
+  }
+
+  const p = {
+    plant_id:             document.getElementById('f-id').value,
+    common_name:          common,
+    scientific_name:      sci,
+    size_tall:            document.getElementById('f-tall').value,
+    size_wide:            document.getElementById('f-wide').value,
+    root_system:          document.getElementById('f-root').value,
+    spread_growth_habit:  document.getElementById('f-spread').value,
+    soil_type:            document.getElementById('f-soil').value,
+    propagation:          document.getElementById('f-prop').value,
+    sunlight:             document.getElementById('f-sun').value,
+    bloom_period:         document.getElementById('f-bloom').value,
+    usda_zones:           document.getElementById('f-zones').value,
+    native_to:            document.getElementById('f-native').value,
+    description:          document.getElementById('f-desc').value,
+    plant_image:          pendingImages.plant   ? '[image attached]' : '',
+    seedling_image:       pendingImages.seedling ? '[image attached]' : '',
+  };
+
+  // Save locally first so it's never lost
+  const local = { ...p, id: p.plant_id, common: p.common_name, sci: p.scientific_name,
+    tall: p.size_tall, wide: p.size_wide, root: p.root_system, spread: p.spread_growth_habit,
+    soil: p.soil_type, prop: p.propagation, sun: p.sunlight, bloom: p.bloom_period,
+    zones: p.usda_zones, native: p.native_to, desc: p.description,
+    imgPlant: pendingImages.plant, imgSeedling: pendingImages.seedling };
+  savedPlants.push(local);
+  nextId++;
+  updateBadge();
+
+  // Show sending state
+  showToast('⏳ Sending to Google Sheets…');
+  resetForm();
+  switchTab('library');
+
+  // Send to Zapier → Google Sheets
+  try {
+    await fetch(ZAPIER_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+      mode: 'no-cors' // required for cross-origin webhook calls
+    });
+    showToast('✓ ' + common + ' saved locally and sent to Google Sheets');
+  } catch (e) {
+    showToast('⚠ Saved locally but could not reach Zapier — check your connection');
+  }
+}
+
+function updateBadge() {
+  const b = document.getElementById('lib-count-badge');
+  b.textContent = savedPlants.length > 0 ? '(' + savedPlants.length + ')' : '';
+}
+
+// ── Library ──
+function renderLibrary() {
+  const empty = document.getElementById('library-empty');
+  const content = document.getElementById('library-content');
+  const cards = document.getElementById('plant-cards');
+  const countText = document.getElementById('lib-count-text');
+  if (savedPlants.length === 0) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = 'block';
+  countText.textContent = savedPlants.length + ' plant' + (savedPlants.length !== 1 ? 's' : '') + ' in library';
+  cards.innerHTML = savedPlants.map((p, i) => `
+    <div class="plant-card">
+      <div class="plant-card-header" id="hdr-${i}" onclick="toggleCard(${i})">
+        <div>
+          <h3>${p.common} <span class="chip chip-id">${p.id}</span></h3>
+          <div class="sci">${p.sci}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="chip chip-saved">Saved</span>
+          <i class="chevron" id="chev-${i}">▾</i>
+        </div>
+      </div>
+      <div class="plant-card-body" id="body-${i}">
+        <div class="mini-grid">
+          <div class="mini-field"><div class="mini-label">Height</div><div class="mini-value">${p.tall}</div></div>
+          <div class="mini-field"><div class="mini-label">Width</div><div class="mini-value">${p.wide}</div></div>
+          <div class="mini-field"><div class="mini-label">Sunlight</div><div class="mini-value">${p.sun}</div></div>
+          <div class="mini-field"><div class="mini-label">Bloom period</div><div class="mini-value">${p.bloom}</div></div>
+          <div class="mini-field"><div class="mini-label">USDA Zones</div><div class="mini-value">${p.zones}</div></div>
+          <div class="mini-field"><div class="mini-label">Soil</div><div class="mini-value">${p.soil}</div></div>
+          <div class="mini-field"><div class="mini-label">Root system</div><div class="mini-value">${p.root}</div></div>
+          <div class="mini-field"><div class="mini-label">Growth habit</div><div class="mini-value">${p.spread}</div></div>
+          <div class="mini-field"><div class="mini-label">Propagation</div><div class="mini-value">${p.prop}</div></div>
+          <div class="mini-field"><div class="mini-label">Native to</div><div class="mini-value">${p.native}</div></div>
+          <div class="mini-field mini-full"><div class="mini-label">Description</div><div class="mini-value">${p.desc}</div></div>
+        </div>
+        <div class="card-img-row">
+          <div class="card-img-wrap">
+            <div class="mini-label">Plant Image</div>
+            ${p.imgPlant ? `<img src="${p.imgPlant}" />` : '<div class="card-img-empty">No image</div>'}
+          </div>
+          <div class="card-img-wrap">
+            <div class="mini-label">Seedling Image</div>
+            ${p.imgSeedling ? `<img src="${p.imgSeedling}" />` : '<div class="card-img-empty">No image</div>'}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+          <button class="btn btn-sm btn-danger" onclick="deletePlant(${i})">✕ Remove</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCard(i) {
+  document.getElementById('body-' + i).classList.toggle('open');
+  document.getElementById('hdr-' + i).classList.toggle('open');
+  document.getElementById('chev-' + i).classList.toggle('open');
+}
+
+function deletePlant(i) {
+  if (!confirm('Remove ' + savedPlants[i].common + ' from the library?')) return;
+  savedPlants.splice(i, 1);
+  updateBadge();
+  renderLibrary();
+  showToast('Plant removed');
+}
+
+// ── CSV Export ──
+function csvEscape(val) {
+  if (val == null) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function exportCSV() {
+  if (savedPlants.length === 0) { showToast('No plants to export'); return; }
+
+  // Main data sheet
+  const headers = ['Plant ID','Common Name','Scientific Name','Size - Tall','Size - Wide',
+    'Root System','Spread / Growth Habit','Soil Type / Preferences','Propagation',
+    'Sunlight','Bloom Period','USDA Zones','Native to','Description / Ecological Role',
+    'Plant Image (base64)','Seedling Image (base64)'];
+  const rows = savedPlants.map(p => [
+    p.id, p.common, p.sci, p.tall, p.wide, p.root, p.spread,
+    p.soil, p.prop, p.sun, p.bloom, p.zones, p.native, p.desc,
+    p.imgPlant || '', p.imgSeedling || ''
+  ].map(csvEscape).join(','));
+
+  // Summary block appended at bottom
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+  const summary = [
+    '',
+    '--- EXPORT SUMMARY ---',
+    'Export Date,' + today,
+    'Total Plants,' + savedPlants.length,
+    'Plants with Plant Image,' + savedPlants.filter(p => p.imgPlant).length,
+    'Plants with Seedling Image,' + savedPlants.filter(p => p.imgSeedling).length,
+    '',
+    'PLANT LIST (Common Name | Scientific Name)',
+    ...savedPlants.map((p, i) => `${i+1}. ${p.common},${p.sci}`)
+  ];
+
+  const csv = [headers.join(','), ...rows, ...summary].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'native_plants_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported — ' + savedPlants.length + ' plant' + (savedPlants.length !== 1 ? 's' : '') + ' + summary');
+}
+</script>
+</body>
+</html>
