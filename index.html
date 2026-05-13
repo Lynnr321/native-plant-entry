@@ -755,7 +755,7 @@ function handleImage(input, type) {
 }
 
 // ── Save ──
-const ZAPIER_WEBHOOK = 'https://hooks.zapier.com/hooks/catch/9272841/4ygxw0s/';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTHsmTjn0HVI-nG6wMdkB0CXnXwjsCtnYM6rPxg_cwcHuhw0RUQk83Dhgnk4ElemrGrQ/exec';
 
 async function savePlant() {
   const common = document.getElementById('f-common').value.trim();
@@ -801,17 +801,17 @@ async function savePlant() {
   resetForm();
   switchTab('library');
 
-  // Send to Zapier → Google Sheets
+  // Send directly to Google Sheets via Apps Script
   try {
-    await fetch(ZAPIER_WEBHOOK, {
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(p),
-      mode: 'no-cors' // required for cross-origin webhook calls
+      mode: 'no-cors' // required for cross-origin calls to Google Apps Script
     });
     showToast('✓ ' + common + ' saved locally and sent to Google Sheets');
   } catch (e) {
-    showToast('⚠ Saved locally but could not reach Zapier — check your connection');
+    showToast('⚠ Saved locally but could not reach Google Sheets — check your connection');
   }
 }
 
