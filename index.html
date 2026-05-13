@@ -265,24 +265,7 @@
   .field-group input:focus, .field-group textarea:focus { outline: none; border-color: var(--green-light); }
   .field-group textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
 
-  /* ── Image Upload ── */
-  .img-upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .img-upload-zone {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: white;
-    position: relative;
-  }
-  .img-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
-  .img-upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-  .img-upload-zone .icon { font-size: 28px; margin-bottom: 6px; }
-  .img-upload-zone .label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
-  .img-upload-zone .sublabel { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .img-preview { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
+
   .img-size-badge {
     font-size: 10px;
     background: var(--green-pale);
@@ -483,28 +466,10 @@
         <div class="field-group field-full"><label>Description / Ecological Role</label><textarea id="f-desc"></textarea></div>
       </div>
 
-      <div class="form-section-title">Photos <span style="font-weight:300;font-style:italic;text-transform:none;letter-spacing:0">— auto-resized to 800×800px on upload</span></div>
-      <div class="img-upload-grid">
-        <div>
-          <div class="img-upload-zone" id="zone-plant" onclick="document.getElementById('img-plant').click()">
-            <input type="file" id="img-plant" accept="image/*" style="display:none" onchange="handleImage(this,'plant')" />
-            <div id="plant-preview-wrap">
-              <div class="icon">📷</div>
-              <div class="label">Plant Image</div>
-              <div class="sublabel">Click to upload · auto-resized to 800×800</div>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div class="img-upload-zone" id="zone-seedling" onclick="document.getElementById('img-seedling').click()">
-            <input type="file" id="img-seedling" accept="image/*" style="display:none" onchange="handleImage(this,'seedling')" />
-            <div id="seedling-preview-wrap">
-              <div class="icon">🌱</div>
-              <div class="label">Seedling Image</div>
-              <div class="sublabel">Click to upload · auto-resized to 800×800</div>
-            </div>
-          </div>
-        </div>
+      <div class="form-section-title">Photos</div>
+      <div style="background:var(--green-pale);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-size:13px;color:var(--text-secondary);line-height:1.7">
+        📱 <strong>Photos are added via the AppSheet app</strong> after the plant is saved here. Open <em>LoveMyGardens</em> in AppSheet, find the plant, and tap to upload the Plant Image and Seedling Image directly from your phone or tablet.
+        <br><a href="https://www.appsheet.com/Template/AppDef?appName=LoveMyGardens-1925796" target="_blank" style="color:var(--green-light);font-weight:500;text-decoration:none">→ Open AppSheet app</a>
       </div>
 
       <div class="save-row">
@@ -538,15 +503,12 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Hidden canvas for image resizing -->
-<canvas id="resize-canvas" style="display:none"></canvas>
 
 <script>
 // ── State ──
 const savedPlants = [];
 let nextId = 1001;
 let lookupMode = 'common';
-let pendingImages = { plant: null, seedling: null };
 
 // ── API Key ──
 function saveApiKey() {
@@ -687,8 +649,6 @@ function clearStatus() {
 
 function fillForm(plant) {
   clearStatus();
-  pendingImages = { plant: null, seedling: null };
-  resetImageZones();
   document.getElementById('entry-form').style.display = 'block';
   document.getElementById('f-id').value = 'PLT-' + nextId;
   document.getElementById('f-common').value = plant.common_name || '';
@@ -710,49 +670,11 @@ function resetForm() {
   document.getElementById('entry-form').style.display = 'none';
   clearStatus();
   document.getElementById('plant-name-input').value = '';
-  pendingImages = { plant: null, seedling: null };
-  resetImageZones();
 }
 
-function resetImageZones() {
-  ['plant','seedling'].forEach(type => {
-    const wrap = document.getElementById(type + '-preview-wrap');
-    wrap.innerHTML = type === 'plant'
-      ? '<div class="icon">📷</div><div class="label">Plant Image</div><div class="sublabel">Click to upload · auto-resized to 800×800</div>'
-      : '<div class="icon">🌱</div><div class="label">Seedling Image</div><div class="sublabel">Click to upload · auto-resized to 800×800</div>';
-  });
-}
 
-// ── Image handling ──
-function handleImage(input, type) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.getElementById('resize-canvas');
-      const SIZE = 800;
-      canvas.width = SIZE;
-      canvas.height = SIZE;
-      const ctx = canvas.getContext('2d');
-      // Cover-fit: center crop to square
-      const s = Math.min(img.width, img.height);
-      const ox = (img.width - s) / 2;
-      const oy = (img.height - s) / 2;
-      ctx.drawImage(img, ox, oy, s, s, 0, 0, SIZE, SIZE);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      pendingImages[type] = dataUrl;
-      // Show preview
-      const wrap = document.getElementById(type + '-preview-wrap');
-      const kb = Math.round(dataUrl.length * 0.75 / 1024);
-      wrap.innerHTML = `<img src="${dataUrl}" class="img-preview" /><span class="img-size-badge">800×800px · ~${kb}KB</span>`;
-      showToast('Image resized to 800×800px (' + kb + 'KB)');
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
+
+
 
 // ── Save ──
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTHsmTjn0HVI-nG6wMdkB0CXnXwjsCtnYM6rPxg_cwcHuhw0RUQk83Dhgnk4ElemrGrQ/exec';
@@ -781,8 +703,8 @@ async function savePlant() {
     bloom_period:         document.getElementById('f-bloom').value,
     usda_zones:           document.getElementById('f-zones').value,
     description:          document.getElementById('f-desc').value,
-    plant_image:          pendingImages.plant   ? '[image attached]' : '',
-    seedling_image:       pendingImages.seedling ? '[image attached]' : '',
+    plant_image:          '',
+    seedling_image:       '',
     native_to:            document.getElementById('f-native').value,
   };
 
@@ -791,7 +713,7 @@ async function savePlant() {
     tall: p.size_tall, wide: p.size_wide, root: p.root_system, spread: p.spread_growth_habit,
     soil: p.soil_type, prop: p.propagation, sun: p.sunlight, bloom: p.bloom_period,
     zones: p.usda_zones, native: p.native_to, desc: p.description,
-    imgPlant: pendingImages.plant, imgSeedling: pendingImages.seedling };
+    imgPlant: '', imgSeedling: '' };
   savedPlants.push(local);
   nextId++;
   updateBadge();
@@ -800,12 +722,6 @@ async function savePlant() {
   showToast('⏳ Sending to Google Sheets…');
   resetForm();
   switchTab('library');
-
-  // Debug image data before sending
-  console.log('=== PLANT SAVE DEBUG ===');
-  console.log('plant_image length:', p.plant_image ? p.plant_image.length : 0);
-  console.log('plant_image preview:', p.plant_image ? p.plant_image.substring(0, 60) : 'EMPTY');
-  console.log('seedling_image length:', p.seedling_image ? p.seedling_image.length : 0);
 
   // Send directly to Google Sheets via Apps Script
   try {
@@ -867,15 +783,8 @@ function renderLibrary() {
           <div class="mini-field"><div class="mini-label">Native to</div><div class="mini-value">${p.native}</div></div>
           <div class="mini-field mini-full"><div class="mini-label">Description</div><div class="mini-value">${p.desc}</div></div>
         </div>
-        <div class="card-img-row">
-          <div class="card-img-wrap">
-            <div class="mini-label">Plant Image</div>
-            ${p.imgPlant ? `<img src="${p.imgPlant}" />` : '<div class="card-img-empty">No image</div>'}
-          </div>
-          <div class="card-img-wrap">
-            <div class="mini-label">Seedling Image</div>
-            ${p.imgSeedling ? `<img src="${p.imgSeedling}" />` : '<div class="card-img-empty">No image</div>'}
-          </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light)">
+          📱 Add photos via AppSheet app
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <button class="btn btn-sm btn-danger" onclick="deletePlant(${i})">✕ Remove</button>
@@ -914,11 +823,11 @@ function exportCSV() {
   const headers = ['Plant ID','Common Name','Scientific Name','Size - Tall','Size - Wide',
     'Root System','Spread / Growth Habit','Soil Type / Preferences','Propagation',
     'Sunlight','Bloom Period','USDA Zones','Native to','Description / Ecological Role',
-    'Plant Image (base64)','Seedling Image (base64)'];
+    'Plant Image URL','Seedling Image URL'];
   const rows = savedPlants.map(p => [
     p.id, p.common, p.sci, p.tall, p.wide, p.root, p.spread,
     p.soil, p.prop, p.sun, p.bloom, p.zones, p.native, p.desc,
-    p.imgPlant || '', p.imgSeedling || ''
+    '', ''
   ].map(csvEscape).join(','));
 
   // Summary block appended at bottom
