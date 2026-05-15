@@ -410,6 +410,7 @@
     <span id="api-saved-msg">✓ Key saved</span>
   </div>
 </div>
+<div id="sheet-load-status" style="text-align:center;font-size:12px;color:var(--text-secondary);padding:6px 32px;background:var(--cream);min-height:24px;"></div>
 
 <div class="container">
   <div class="tabs">
@@ -508,6 +509,27 @@
 // ── State ──
 const savedPlants = [];
 let nextId = 1001;
+let sheetPlants = []; // loaded from Google Sheets on startup
+
+// ── Load existing plants from Google Sheets on startup ──
+async function loadSheetPlants() {
+  const key = getApiKey();
+  const statusEl = document.getElementById('sheet-load-status');
+  if (!APPS_SCRIPT_URL) return;
+  try {
+    if (statusEl) statusEl.textContent = '⏳ Loading existing plants…';
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getPlants', { method: 'GET' });
+    const data = await res.json();
+    if (data.plants && Array.isArray(data.plants)) {
+      sheetPlants = data.plants;
+      if (statusEl) statusEl.textContent = '✓ ' + sheetPlants.length + ' plants loaded from sheet';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '⚠ Could not load plant list — duplicate check will use session only';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+}
 let lookupMode = 'common';
 
 // ── API Key ──
@@ -531,6 +553,8 @@ window.addEventListener('load', () => {
     document.getElementById('api-key-input').value = '••••••••••••••••';
     document.getElementById('api-saved-msg').style.display = 'inline';
   }
+  // Load existing plants from sheet for duplicate checking
+  loadSheetPlants();
 });
 
 // ── Mode Toggle ──
@@ -567,7 +591,13 @@ function showToast(msg) {
 function findDuplicate(sciName) {
   if (!sciName) return null;
   const norm = sciName.trim().toLowerCase();
-  return savedPlants.find(p => p.sci.trim().toLowerCase() === norm) || null;
+  // Check sheet plants first (most complete)
+  const sheetMatch = sheetPlants.find(p => p.sci && p.sci.trim().toLowerCase() === norm);
+  if (sheetMatch) return { ...sheetMatch, source: 'sheet' };
+  // Fall back to session plants
+  const sessionMatch = savedPlants.find(p => p.sci && p.sci.trim().toLowerCase() === norm);
+  if (sessionMatch) return { ...sessionMatch, source: 'session' };
+  return null;
 }
 
 // ── AI Lookup ──
@@ -630,7 +660,26 @@ Rules:
     // Duplicate check
     const dupe = findDuplicate(plant.scientific_name);
     if (dupe) {
-      setStatus(`<div class="warn-msg">⚠ <div><strong>Possible duplicate detected</strong> — <em>${plant.scientific_name}</em> already exists in your library as "<strong>${dupe.common}</strong>" (${dupe.id}). Do you still want to add this entry?<br><br><button class="btn btn-sm" onclick="fillForm(${JSON.stringify(plant).replace(/"/g,'&quot;')})">Add anyway</button> <button class="btn btn-sm btn-danger" onclick="clearStatus()">Cancel</button></div></div>`);
+      const plantJson = JSON.stringify(plant).replace(/"/g, '&quot;');
+      const dupeJson = JSON.stringify(dupe).replace(/"/g, '&quot;');
+      setStatus(`<div class="warn-msg" style="flex-direction:column;gap:12px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="font-size:18px;flex-shrink:0">⚠️</span>
+          <div>
+            <strong>Duplicate scientific name detected</strong><br>
+            <em>${plant.scientific_name}</em> already exists in your sheet as:<br>
+            <strong style="font-size:15px;">${dupe.common_name || dupe.common}</strong>
+            ${dupe.plant_id || dupe.id ? '<span style="font-size:11px;background:#fff3cd;border-radius:4px;padding:1px 6px;margin-left:6px;">' + (dupe.plant_id || dupe.id) + '</span>' : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-success" onclick="mergeCommonName('${(dupe.plant_id || dupe.id)}','${(dupe.common_name || dupe.common).replace(/'/g,"\\'")}','${plant.common_name.replace(/'/g,"\\'")}')">
+            ✔ Add as alternate name: <em>${dupe.common_name || dupe.common} / ${plant.common_name}</em>
+          </button>
+          <button class="btn btn-sm" onclick="fillForm(${plantJson})">Save as separate entry</button>
+          <button class="btn btn-sm btn-danger" onclick="clearStatus()">Cancel</button>
+        </div>
+      </div>`);
       return;
     }
 
@@ -645,6 +694,26 @@ function setStatus(html) {
 }
 function clearStatus() {
   document.getElementById('ai-status').innerHTML = '';
+}
+
+async function mergeCommonName(plantId, existingName, newName) {
+  const merged = existingName.trim() + ' / ' + newName.trim();
+  setStatus('<div class="ai-loading"><div class="dot-pulse"><span></span><span></span><span></span></div> Updating common name in Google Sheets…</div>');
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'updateCommonName', plant_id: plantId, common_name: merged }),
+      mode: 'no-cors'
+    });
+    // Update local sheetPlants cache
+    const idx = sheetPlants.findIndex(p => (p.plant_id || p.id) === plantId);
+    if (idx >= 0) sheetPlants[idx].common_name = merged;
+    clearStatus();
+    showToast('✓ Common name updated to: ' + merged);
+  } catch(e) {
+    setStatus('<span class="error-msg">⚠ Could not update — check your connection and try again.</span>');
+  }
 }
 
 function fillForm(plant) {
@@ -686,7 +755,9 @@ async function savePlant() {
 
   const dupe = findDuplicate(sci);
   if (dupe) {
-    if (!confirm(`"${sci}" already exists as "${dupe.common}" (${dupe.id}). Save anyway?`)) return;
+    const dupeName = dupe.common_name || dupe.common || '';
+    const dupeId = dupe.plant_id || dupe.id || '';
+    if (!confirm(sci + ' already exists as "' + dupeName + '" (' + dupeId + '). Save as a separate entry anyway?')) return;
   }
 
   const p = {
