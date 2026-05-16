@@ -588,14 +588,35 @@ function showToast(msg) {
 }
 
 // ── Duplicate check ──
+function normSci(s) {
+  if (!s) return '';
+  // Lowercase, remove var./subsp./ssp./f./x hybrids, extra cultivar info in quotes
+  return s.trim().toLowerCase()
+    .replace(/\s+(var|subsp|ssp|subvar|f|forma)\..*/,'')  // strip variety/subspecies
+    .replace(/\s+x\s+.*/,'')                               // strip hybrid notation
+    .replace(/'[^']*'/g,'')                                // strip cultivar names in quotes
+    .replace(/\s+/g,' ')                                   // normalize spaces
+    .trim();
+}
+
+function sciMatch(a, b) {
+  if (!a || !b) return false;
+  const na = normSci(a);
+  const nb = normSci(b);
+  if (na === nb) return true;
+  // Also check if first two words (genus + species) match
+  const wa = na.split(' ').slice(0,2).join(' ');
+  const wb = nb.split(' ').slice(0,2).join(' ');
+  return wa.length > 3 && wb.length > 3 && wa === wb;
+}
+
 function findDuplicate(sciName) {
   if (!sciName) return null;
-  const norm = sciName.trim().toLowerCase();
   // Check sheet plants first (most complete)
-  const sheetMatch = sheetPlants.find(p => p.sci && p.sci.trim().toLowerCase() === norm);
+  const sheetMatch = sheetPlants.find(p => sciMatch(p.scientific_name || p.sci, sciName));
   if (sheetMatch) return { ...sheetMatch, source: 'sheet' };
   // Fall back to session plants
-  const sessionMatch = savedPlants.find(p => p.sci && p.sci.trim().toLowerCase() === norm);
+  const sessionMatch = savedPlants.find(p => sciMatch(p.sci, sciName));
   if (sessionMatch) return { ...sessionMatch, source: 'session' };
   return null;
 }
